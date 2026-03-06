@@ -1,0 +1,463 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000000000000000000000000000000000000..f82ebb98f82f98ef03c158f5860e85e354b0e653
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,9 @@
++.gradle/
++local.properties
++.idea/
++*.iml
++build/
++app/build/
++
++# Keep PR text-only
++gradle/wrapper/gradle-wrapper.jar
+diff --git a/README.md b/README.md
+index 606bbb304cd0f14b2620d7e6a4268df11fa35ee9..9249f79afecf4c488cdbfe095669bff517e1e926 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,20 @@
+-# shopping-calendar
+\ No newline at end of file
++# Shopping Calendar (Android, Kotlin)
++
++Простой Android Studio проект на Kotlin + Jetpack Compose.
++
++## Что умеет
++- список покупок на выбранный день;
++- добавление товара;
++- если добавить тот же товар повторно в тот же день — увеличивается количество (`молоко ×2`);
++- переключение дня через календарь;
++- отметка товара как купленного (checkbox).
++
++## Как открыть
++1. Откройте папку проекта в Android Studio (`/workspace/shopping-calendar`).
++2. Дождитесь Gradle Sync.
++3. Запустите `app` на эмуляторе/устройстве или соберите APK через **Build > Build APK(s)**.
++
++## Структура
++- `app/src/main/java/com/example/shoppingcalendar/MainActivity.kt` — основной UI и логика списка.
++- `app/src/main/AndroidManifest.xml` — манифест приложения.
++- `app/build.gradle.kts` — модульные зависимости и Android настройки.
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+new file mode 100644
+index 0000000000000000000000000000000000000000..dc03a0458cb35851641a19f2f6289ca9b5de873c
+--- /dev/null
++++ b/app/build.gradle.kts
+@@ -0,0 +1,54 @@
++plugins {
++    id("com.android.application")
++    id("org.jetbrains.kotlin.android")
++}
++
++android {
++    namespace = "com.example.shoppingcalendar"
++    compileSdk = 34
++
++    defaultConfig {
++        applicationId = "com.example.shoppingcalendar"
++        minSdk = 24
++        targetSdk = 34
++        versionCode = 1
++        versionName = "1.0"
++
++        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
++    }
++
++    buildTypes {
++        release {
++            isMinifyEnabled = false
++            proguardFiles(
++                getDefaultProguardFile("proguard-android-optimize.txt"),
++                "proguard-rules.pro"
++            )
++        }
++    }
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
++    }
++    kotlinOptions {
++        jvmTarget = "17"
++    }
++    buildFeatures {
++        compose = true
++    }
++    composeOptions {
++        kotlinCompilerExtensionVersion = "1.5.14"
++    }
++}
++
++dependencies {
++    implementation("androidx.core:core-ktx:1.13.1")
++    implementation("androidx.activity:activity-compose:1.9.1")
++    implementation("androidx.compose.ui:ui:1.6.8")
++    implementation("androidx.compose.ui:ui-tooling-preview:1.6.8")
++    implementation("androidx.compose.material3:material3:1.2.1")
++    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
++
++    debugImplementation("androidx.compose.ui:ui-tooling:1.6.8")
++    debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.8")
++}
+diff --git a/app/proguard-rules.pro b/app/proguard-rules.pro
+new file mode 100644
+index 0000000000000000000000000000000000000000..a1e5cc296dba142e7127b507d1552f10e989c6a7
+--- /dev/null
++++ b/app/proguard-rules.pro
+@@ -0,0 +1 @@
++# No custom rules yet.
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..0133102045154daaaeb2cbef57df9c98ead066e3
+--- /dev/null
++++ b/app/src/main/AndroidManifest.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <application
++        android:allowBackup="true"
++        android:label="@string/app_name"
++        android:supportsRtl="true"
++        android:theme="@style/Theme.ShoppingCalendar">
++        <activity
++            android:name=".MainActivity"
++            android:exported="true">
++            <intent-filter>
++                <action android:name="android.intent.action.MAIN" />
++
++                <category android:name="android.intent.category.LAUNCHER" />
++            </intent-filter>
++        </activity>
++    </application>
++
++</manifest>
+diff --git a/app/src/main/java/com/example/shoppingcalendar/MainActivity.kt b/app/src/main/java/com/example/shoppingcalendar/MainActivity.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..47fa1329b84a375ff948747185ab9818aed639e6
+--- /dev/null
++++ b/app/src/main/java/com/example/shoppingcalendar/MainActivity.kt
+@@ -0,0 +1,172 @@
++package com.example.shoppingcalendar
++
++import android.app.DatePickerDialog
++import android.os.Bundle
++import androidx.activity.ComponentActivity
++import androidx.activity.compose.setContent
++import androidx.activity.enableEdgeToEdge
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material3.Button
++import androidx.compose.material3.Checkbox
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedTextField
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateMapOf
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.unit.dp
++import androidx.lifecycle.ViewModel
++import androidx.lifecycle.viewmodel.compose.viewModel
++import java.time.LocalDate
++import java.time.format.DateTimeFormatter
++
++data class ShoppingItem(
++    val name: String,
++    val quantity: Int,
++    val isBought: Boolean
++)
++
++class ShoppingViewModel : ViewModel() {
++    private val itemsByDate = mutableStateMapOf<LocalDate, List<ShoppingItem>>()
++
++    fun itemsFor(date: LocalDate): List<ShoppingItem> {
++        return itemsByDate[date].orEmpty()
++    }
++
++    fun addItem(date: LocalDate, rawName: String) {
++        val normalized = rawName.trim()
++        if (normalized.isEmpty()) return
++
++        val current = itemsByDate[date].orEmpty()
++        val index = current.indexOfFirst { it.name.equals(normalized, ignoreCase = true) }
++
++        val updated = if (index >= 0) {
++            current.toMutableList().also { list ->
++                val old = list[index]
++                list[index] = old.copy(quantity = old.quantity + 1)
++            }
++        } else {
++            current + ShoppingItem(name = normalized, quantity = 1, isBought = false)
++        }
++
++        itemsByDate[date] = updated
++    }
++
++    fun toggleBought(date: LocalDate, itemName: String) {
++        val current = itemsByDate[date].orEmpty()
++        val updated = current.map { item ->
++            if (item.name == itemName) item.copy(isBought = !item.isBought) else item
++        }
++        itemsByDate[date] = updated
++    }
++}
++
++class MainActivity : ComponentActivity() {
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        enableEdgeToEdge()
++        setContent {
++            MaterialTheme {
++                Surface(modifier = Modifier.fillMaxSize()) {
++                    ShoppingCalendarScreen()
++                }
++            }
++        }
++    }
++}
++
++@Composable
++fun ShoppingCalendarScreen(viewModel: ShoppingViewModel = viewModel()) {
++    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
++    var newItemName by remember { mutableStateOf("") }
++    val context = LocalContext.current
++    val formatter = remember { DateTimeFormatter.ofPattern("dd.MM.yyyy") }
++
++    val items = viewModel.itemsFor(selectedDate)
++
++    Column(
++        modifier = Modifier
++            .fillMaxSize()
++            .padding(16.dp),
++        verticalArrangement = Arrangement.spacedBy(12.dp)
++    ) {
++        Text(
++            text = "Shopping Calendar",
++            style = MaterialTheme.typography.headlineSmall,
++            fontWeight = FontWeight.Bold
++        )
++
++        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++            Text(text = "Дата: ${selectedDate.format(formatter)}")
++            Button(onClick = {
++                DatePickerDialog(
++                    context,
++                    { _, year, month, dayOfMonth ->
++                        selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
++                    },
++                    selectedDate.year,
++                    selectedDate.monthValue - 1,
++                    selectedDate.dayOfMonth
++                ).show()
++            }) {
++                Text("Выбрать день")
++            }
++        }
++
++        Row(
++            modifier = Modifier.fillMaxWidth(),
++            horizontalArrangement = Arrangement.spacedBy(8.dp),
++            verticalAlignment = Alignment.CenterVertically
++        ) {
++            OutlinedTextField(
++                modifier = Modifier.weight(1f),
++                value = newItemName,
++                onValueChange = { newItemName = it },
++                label = { Text("Добавить товар") },
++                singleLine = true
++            )
++            Button(onClick = {
++                viewModel.addItem(selectedDate, newItemName)
++                newItemName = ""
++            }) {
++                Text("Добавить")
++            }
++        }
++
++        Text(
++            text = if (items.isEmpty()) "Список на день пуст" else "Список покупок",
++            style = MaterialTheme.typography.titleMedium
++        )
++
++        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
++            items(items, key = { it.name }) { item ->
++                Row(
++                    modifier = Modifier.fillMaxWidth(),
++                    verticalAlignment = Alignment.CenterVertically,
++                    horizontalArrangement = Arrangement.SpaceBetween
++                ) {
++                    Text(text = "${item.name} ×${item.quantity}")
++                    Checkbox(
++                        checked = item.isBought,
++                        onCheckedChange = { viewModel.toggleBought(selectedDate, item.name) }
++                    )
++                }
++            }
++        }
++    }
++}
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..301525e323fa474a55aaf855d997a366e4c8a866
+--- /dev/null
++++ b/app/src/main/res/values/strings.xml
+@@ -0,0 +1,3 @@
++<resources>
++    <string name="app_name">Shopping Calendar</string>
++</resources>
+diff --git a/app/src/main/res/values/themes.xml b/app/src/main/res/values/themes.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..dc47cd0b413b8d94302c86cbc55d398d4f1b63d2
+--- /dev/null
++++ b/app/src/main/res/values/themes.xml
+@@ -0,0 +1,5 @@
++<resources xmlns:tools="http://schemas.android.com/tools">
++    <style name="Theme.ShoppingCalendar" parent="Theme.Material3.DayNight.NoActionBar">
++        <item name="android:statusBarColor" tools:targetApi="l">@android:color/transparent</item>
++    </style>
++</resources>
+diff --git a/build.gradle.kts b/build.gradle.kts
+new file mode 100644
+index 0000000000000000000000000000000000000000..6a4563e6917517c5a30893d4cbe7b75768e7e1f3
+--- /dev/null
++++ b/build.gradle.kts
+@@ -0,0 +1,17 @@
++buildscript {
++    repositories {
++        google()
++        mavenCentral()
++    }
++    dependencies {
++        classpath("com.android.tools.build:gradle:8.5.0")
++        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
++    }
++}
++
++allprojects {
++    repositories {
++        google()
++        mavenCentral()
++    }
++}
+diff --git a/gradle.properties b/gradle.properties
+new file mode 100644
+index 0000000000000000000000000000000000000000..f0a2e55f89e383466d2c6b481c8c468a3aa0b13d
+--- /dev/null
++++ b/gradle.properties
+@@ -0,0 +1,4 @@
++org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
++android.useAndroidX=true
++kotlin.code.style=official
++android.nonTransitiveRClass=true
+diff --git a/gradle/wrapper/gradle-wrapper.properties b/gradle/wrapper/gradle-wrapper.properties
+new file mode 100644
+index 0000000000000000000000000000000000000000..d4081da476bb3ee087bb538a0bb6718958af29a4
+--- /dev/null
++++ b/gradle/wrapper/gradle-wrapper.properties
+@@ -0,0 +1,7 @@
++distributionBase=GRADLE_USER_HOME
++distributionPath=wrapper/dists
++distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.3-bin.zip
++networkTimeout=10000
++validateDistributionUrl=true
++zipStoreBase=GRADLE_USER_HOME
++zipStorePath=wrapper/dists
+diff --git a/gradlew b/gradlew
+new file mode 100755
+index 0000000000000000000000000000000000000000..1638187c9d7cbb486b1c24aa28e4c9985b1d2e62
+--- /dev/null
++++ b/gradlew
+@@ -0,0 +1,16 @@
++#!/bin/sh
++
++##############################################################################
++# Gradle start up script for POSIX generated manually.
++##############################################################################
++
++APP_HOME=$(cd "${0%/*}" && pwd -P)
++CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
++
++if [ -n "$JAVA_HOME" ] ; then
++    JAVACMD="$JAVA_HOME/bin/java"
++else
++    JAVACMD="java"
++fi
++
++exec "$JAVACMD" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+diff --git a/gradlew.bat b/gradlew.bat
+new file mode 100644
+index 0000000000000000000000000000000000000000..69a13fda45d57a248f0938863356b563c533b77e
+--- /dev/null
++++ b/gradlew.bat
+@@ -0,0 +1,32 @@
++@ECHO OFF
++set DIRNAME=%~dp0
++if "%DIRNAME%"=="" set DIRNAME=.
++set APP_HOME=%DIRNAME%
++set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
++
++if defined JAVA_HOME goto findJavaFromJavaHome
++set JAVA_EXE=java.exe
++%JAVA_EXE% -version >NUL 2>&1
++if "%ERRORLEVEL%" == "0" goto execute
++
++echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
++goto fail
++
++:findJavaFromJavaHome
++set JAVA_HOME=%JAVA_HOME:"=%
++set JAVA_EXE=%JAVA_HOME%/bin/java.exe
++
++if exist "%JAVA_EXE%" goto execute
++
++echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME%
++goto fail
++
++:execute
++"%JAVA_EXE%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %*
++if "%ERRORLEVEL%" == "0" goto mainEnd
++
++:fail
++exit /b 1
++
++:mainEnd
++if "%OS%"=="Windows_NT" endlocal
+diff --git a/settings.gradle.kts b/settings.gradle.kts
+new file mode 100644
+index 0000000000000000000000000000000000000000..cb438b7cc7e73bb15c80982a3ffed7267d9b9538
+--- /dev/null
++++ b/settings.gradle.kts
+@@ -0,0 +1,18 @@
++pluginManagement {
++    repositories {
++        google()
++        mavenCentral()
++        gradlePluginPortal()
++    }
++}
++
++dependencyResolutionManagement {
++    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
++    repositories {
++        google()
++        mavenCentral()
++    }
++}
++
++rootProject.name = "ShoppingCalendar"
++include(":app")

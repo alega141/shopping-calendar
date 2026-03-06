@@ -1,0 +1,9 @@
+.gradle/
+local.properties
+.idea/
+*.iml
+build/
+app/build/
+
+# Keep PR text-only
+gradle/wrapper/gradle-wrapper.jar
